@@ -70,19 +70,13 @@
 //! // and they will be skipped when rendering or handling events.
 //! ```
 //! 
-//! There's also an experimental function for removing text boxes declaratively. Call [`Text::remove_old_nodes()`] to remove all the text boxes that were made outdated by [`Text::advance_frame_and_hide_boxes()`] and were not refreshed.
-//! 
-//! Individual text boxes can be kept hidden in the background by using [`TextBox::set_can_hide()`]. [`Text::remove_old_nodes()`] will skip removing text boxes that "can hide".
-//! 
-//! Because [`Text::remove_old_nodes()`] mass-removes text boxes without consuming their handles, the handles become "dangling" and should not be reused. Only use this if your node management is also declarative, so you can be confident that the handles won't be kept around.
-//! 
-//! [`Text::remove_old_nodes()`] is the only function that breaks the "no dangling handles" promise. If you use imperative [`Text::remove_text_box()`] calls and avoid `remove_old_nodes()`, then there is no way for the handle system to break.
+//! There's also an experimental function for removing text boxes declaratively: [`Text::remove_old_nodes()`].
 //! 
 //! This library was written for use in Keru. Keru is a declarative library that diffs node trees, so it uses imperative-mode calls to remove widgets. However, it uses the declarative interface for hiding text boxes that need to be kept hidden in the background.
 //! 
 //! ## Interaction
 //! 
-//! Text boxes and text edit boxes are fully interactive. In simple situations, this requires a single function call: [`Text::handle_event()`]. This function takes a `winit::WindowEvent` and updates all the text boxes accordingly. If it is a key press, it will go to the currently focused text box. If it is a mouse click, it will go to the topmost text box on the click's position, and so on.
+//! Text boxes and text edit boxes are fully interactive. In simple situations, this requires a single function call: [`Text::handle_event()`]. This function takes a `winit::WindowEvent` and updates all the text boxes accordingly.
 //! 
 //! As great as this sounds, sometimes text boxes are occluded by other objects, such as an opaque panel. In this case, handling a mouse click event requires information that the [`Text`] struct doesn't have, so the integration needs to be a bit more complex. The process is this:
 //! 

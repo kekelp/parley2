@@ -404,11 +404,15 @@ impl Text {
 
     /// Remove all text boxes that were made outdated by [`Text::advance_frame_and_hide_boxes()`], were not refreshed with [`Text::refresh_text_box()`], and were not set to remain as hidden with [`TextBox::set_can_hide()`].
     /// 
-    /// After calling this function, all handles to the text boxes that were deleted this way become "dangling", and using them in functions like [`Text::get_text_box()`] or [`Text::remove_text_box()`] will cause panics or incorrect results.
+    /// Because [`Text::remove_old_nodes()`] mass-removes text boxes without consuming their handles, the handles become "dangling" and should not be reused. Using them in functions like [`Text::get_text_box()`] or [`Text::remove_text_box()`] will cause panics or incorrect results.
     /// 
-    /// If the structs holding the text handles are managed in a similar declarative way, this should be easy to avoid, but mixing declarative and imperative approaches to removing can lead to problems. 
+    /// Only use this function if the structs holding the handles are managed in a way where you can be confident that the handles won't be kept around and reused.
     /// 
     /// On the other hand, it's fine to use the declarative system for *hiding* text boxes, but sticking to imperative [`Text::remove_text_box()`] calls to remove them.
+    /// 
+    /// [`Text::remove_old_nodes()`] is the only function that breaks the "no dangling handles" promise. If you use imperative [`Text::remove_text_box()`] calls and avoid `remove_old_nodes()`, then there is no way for the handle system to break.
+    /// 
+
     pub fn remove_old_nodes(&mut self) {
         // Clear focus if the focused text box will be removed
         if let Some(focused) = self.focused {
