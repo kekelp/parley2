@@ -989,6 +989,7 @@ dependencies = [
 [[package]]
 name = "fontique"
 version = "0.5.0"
+source = "git+https://github.com/kekelp/parley?rev=b580902#b58090239de3e948ce9c7d6ee619df9b5fa8b110"
 dependencies = [
  "bytemuck",
  "hashbrown",
@@ -2116,6 +2117,7 @@ dependencies = [
 [[package]]
 name = "parley"
 version = "0.5.0"
+source = "git+https://github.com/kekelp/parley?rev=b580902#b58090239de3e948ce9c7d6ee619df9b5fa8b110"
 dependencies = [
  "accesskit",
  "fontique",

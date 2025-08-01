@@ -1,12 +1,13 @@
 [![Apache 2.0 or MIT license.](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue.svg)](#license)
 [![Documentation for the `main` branch](https://img.shields.io/badge/docs-main-informational)](https://kekelp.github.io/textslabs/textslabs/index.html)
 
-Textslabs is an experimental high level text library based on Parley.
+`textslabs` is an experimental high level text library, with the goal to allow any winit/wgpu program to have full-featured text and text editing with minimal integration effort.
 
-The goal is to allow any winit/wgpu program to have full-featured text and text editing with minimal integration effort.
+This library is based on `parley`, which does most of the hard technical work. `textslabs` manages collections of TextBox and TextEdit objects, keeps track of changes and does relayouts and rerenders when necessary, implements interactive selecting and editing, integrates accessibility, etc.
 
-See the `basic.rs` example to see how the library can be used, or the [docs for the main branch](https://kekelp.github.io/textslabs/textslabs/index.html) for more information.
+It also includes an atlas GPU renderer to render the text on the screen.
 
+See the examples in the repository, starting with `basic.rs`, to see how the library can be used. The [documentation for the main branch](https://kekelp.github.io/textslabs/textslabs/index.html) is available.
 
 ## License
 

@@ -14,7 +14,8 @@ opt-level = 3
 
 [dependencies]
 # parley = { git = "https://github.com/linebender/parley", rev = "93a2faa", features = ["accesskit"] }
-parley = { path = "../../../clones/parley/parley", features = ["accesskit"] }
+# parley = { path = "../../../clones/parley/parley", features = ["accesskit"] }
+parley = { git = "https://github.com/kekelp/parley", rev = "b580902", features = ["accesskit"] }
 wgpu = { version = "23", default-features = true }
 etagere = "0.2.10"
 lru = { version = "0.12.1", default-features = false }
