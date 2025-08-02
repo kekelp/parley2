@@ -192,7 +192,7 @@ impl winit::application::ApplicationHandler<()> for Application {
         event: WindowEvent,
     ) {
         let state = self.state.as_mut().unwrap();
-        let result = state.text.handle_event(&event, &state.window);
+        state.text.handle_event(&event, &state.window);
 
         if event == winit::event::WindowEvent::RedrawRequested {
             _ = state.render();
@@ -210,7 +210,7 @@ impl winit::application::ApplicationHandler<()> for Application {
             _ => {}
         }
 
-        if result.need_rerender {
+        if state.text.need_rerender() {
             state.window.request_redraw();
         }
     }

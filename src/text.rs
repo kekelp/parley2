@@ -60,6 +60,9 @@ pub struct Text {
 pub struct Shared {
     pub(crate) styles: Slab<StyleInner>,
     pub(crate) text_changed: bool,
+    pub(crate) decorations_changed: bool,
+    pub(crate) scrolled: bool,
+    pub(crate) event_consumed: bool,
     #[cfg(feature = "accessibility")]
     pub(crate) accesskit_tree_update: TreeUpdate,
     #[cfg(feature = "accessibility")]
@@ -274,6 +277,9 @@ impl Text {
             shared: Shared {
                 styles,
                 text_changed: true,
+                decorations_changed: true,
+                scrolled: true,
+                event_consumed: true,
                 #[cfg(feature = "accessibility")]
                 accesskit_focus_update: (Some(NodeId(0)), 0),
                 current_event_number: 1,
@@ -606,13 +612,20 @@ impl Text {
             }
         }
 
-        self.shared.text_changed = false;
-        self.decorations_changed = false;
-        
-        // Only clear scrolled indices when all animations are finished
         self.clear_finished_scroll_animations();
 
+        self.shared.text_changed = false;
+        self.shared.decorations_changed = false;
+        self.shared.event_consumed = false;
+
         self.using_frame_based_visibility = false;
+
+        // If animations are still running, we need to keep rerendering. Maybe we could use a different flag for clarity.
+        if self.get_max_animation_duration().is_some() {
+            self.shared.scrolled = true;
+        } else {
+            self.shared.scrolled = false;
+        }
     }
 
     /// Fast path for handling scroll-only changes by moving quads in-place
@@ -655,28 +668,20 @@ impl Text {
     /// For complex z-ordering, use [`Text::find_topmost_text_box()`] and [`Text::handle_event_with_topmost()`], as described in the crate-level docs and shown in the `occlusion.rs` example.
     /// 
     /// Any events other than `winit::WindowEvent::MouseInput` can use either this method or the occlusion method interchangeably.
-    pub fn handle_event(&mut self, event: &WindowEvent, window: &Window) -> EventResult {
-        let mut result = EventResult::nothing();
-
+    pub fn handle_event(&mut self, event: &WindowEvent, window: &Window) {
         self.shared.current_event_number += 1;
         
         self.input_state.handle_event(event);
 
         if let WindowEvent::Resized(_) = event {
             self.shared.text_changed = true;
-            result.need_rerender = true;
         }
 
         // update smooth scrolling animations
         if let WindowEvent::RedrawRequested = event {
             let animation_updated = self.update_smooth_scrolling();
             if animation_updated {
-                window.request_redraw();
-                result.need_rerender = true;
-            }
-            // If animations are still running, we need to keep rerendering
-            if self.get_max_animation_duration().is_some() {
-                result.need_rerender = true;
+                self.shared.scrolled = true;
             }
         }
 
@@ -684,8 +689,7 @@ impl Text {
             if state.is_pressed() && *button == MouseButton::Left {
                 let new_focus = self.find_topmost_at_pos(self.input_state.mouse.cursor_pos);
                 if new_focus.is_some() {
-                    result.consumed = true;
-                    result.need_rerender = true;
+                    self.shared.event_consumed = true;
                 }
                 self.refocus(new_focus);
                 self.handle_click_counting();
@@ -695,34 +699,23 @@ impl Text {
         if let WindowEvent::MouseWheel { .. } = event {
             let hovered = self.find_topmost_at_pos(self.input_state.mouse.cursor_pos);
             if let Some(hovered_widget) = hovered {
-                result.consumed = true;
-                self.handle_hovered_event(hovered_widget, event, window, &mut result);
+                self.shared.event_consumed = true;
+                self.handle_hovered_event(hovered_widget, event, window);
             }
-            return result;
+            return;
         }
 
         if let Some(focused) = self.focused {
-            result.consumed = true;
-            self.handle_focused_event(focused, event, window, &mut result);
+            self.shared.event_consumed = true;
+            self.handle_focused_event(focused, event, window);
 
             #[cfg(feature = "accessibility")] {   
                 // todo: not the best, this includes decoration changes and stuff.
-                if result.need_rerender {
+                if self.need_rerender() {
                     self.push_ak_update_for_focused(focused);
                 }
             }
         }
-
-        let (_, changed) = self.cursor_blinked_out(false);
-        if changed {
-            // When using EventProxy timer, we don't need to set wake_up_in
-            if self.cursor_blink_timer.is_none() {
-                result.wake_up_event_loop_in = Some(Duration::from_millis(CURSOR_BLINK_TIME_MILLIS));
-            }
-            // result.need_rerender = true;
-        }
-        
-        result
     }
 
     #[cfg(feature = "accessibility")]
@@ -772,9 +765,7 @@ impl Text {
     /// Pass `Some(text_box_id)` if a text box should receive the event, or `None` if it's occluded.
     /// 
     /// If the text box is occluded, this function should still be called with `None`, so that text boxes can defocus.
-    pub fn handle_event_with_topmost(&mut self, event: &WindowEvent, window: &Window, topmost_text_box: Option<AnyBox>) -> EventResult {
-        let mut result = EventResult::nothing();
-        
+    pub fn handle_event_with_topmost(&mut self, event: &WindowEvent, window: &Window, topmost_text_box: Option<AnyBox>) {        
         self.input_state.handle_event(event);
 
         // update smooth scrolling animations
@@ -782,19 +773,13 @@ impl Text {
             let animation_updated = self.update_smooth_scrolling();
             if animation_updated {
                 window.request_redraw();
-                result.need_rerender = true;
-            }
-            // If animations are still running, we need to keep rerendering
-            if self.get_max_animation_duration().is_some() {
-                result.need_rerender = true;
             }
         }
 
         if let WindowEvent::MouseInput { state, button, .. } = event {
             if state.is_pressed() && *button == MouseButton::Left {
                 if topmost_text_box.is_some() {
-                    result.consumed = true;
-                    result.need_rerender = true;
+                    self.shared.event_consumed = true;
                 }
                 self.refocus(topmost_text_box);
                 self.handle_click_counting();
@@ -803,17 +788,15 @@ impl Text {
 
         if let WindowEvent::MouseWheel { .. } = event {
             if let Some(hovered_widget) = topmost_text_box {
-                result.consumed = true;
-                self.handle_hovered_event(hovered_widget, event, window, &mut result);
+                self.shared.event_consumed = true;
+                self.handle_hovered_event(hovered_widget, event, window);
             }
         }
 
         if let Some(focused) = self.focused {
-            result.consumed = true;
-            self.handle_focused_event(focused, event, window, &mut result);
+            self.shared.event_consumed = true;
+            self.handle_focused_event(focused, event, window);
         }
-        
-        result
     }
 
     fn find_topmost_at_pos(&mut self, cursor_pos: (f64, f64)) -> Option<AnyBox> {
@@ -913,7 +896,7 @@ impl Text {
         }
     }
     
-    fn handle_hovered_event(&mut self, hovered: AnyBox, event: &WindowEvent, window: &Window, result: &mut EventResult) {
+    fn handle_hovered_event(&mut self, hovered: AnyBox, event: &WindowEvent, window: &Window) {
         // scroll wheel event
         if let WindowEvent::MouseWheel { .. } = event {
             match hovered {
@@ -921,7 +904,6 @@ impl Text {
                     let handle = TextEditHandle { i: i as u32 };
                     let did_scroll = self.handle_text_edit_scroll_event(&handle, event, window);
                     if did_scroll {
-                        result.need_rerender = true;
                         self.decorations_changed = true;
                         self.scrolled_moved_indices.push(AnyBox::TextEdit(i));
                     }
@@ -931,44 +913,34 @@ impl Text {
         }
     }
 
-    fn handle_focused_event(&mut self, focused: AnyBox, event: &WindowEvent, window: &Window, result: &mut EventResult) {
+    fn handle_focused_event(&mut self, focused: AnyBox, event: &WindowEvent, window: &Window) {
         match focused {
             AnyBox::TextEdit(i) => {
                 let handle = TextEditHandle { i: i as u32 };
                 let mut text_edit = get_full_text_edit_free_function(&mut self.text_edits, &mut self.shared, &handle);
 
-                let text_result = text_edit.handle_event(event, window, &self.input_state);
-                if text_result.text_changed {
-                    self.shared.text_changed = true;
-                    result.need_rerender = true;
+                text_edit.handle_event(event, window, &self.input_state);
+                if self.shared.text_changed {
                     self.reset_cursor_blink();
                 }
-                if text_result.decorations_changed {
+                if self.shared.decorations_changed {
                     self.decorations_changed = true;
-                    result.need_rerender = true;
                     self.reset_cursor_blink();
                 }
-                if !text_result.text_changed && text_result.scrolled {
+                if !self.shared.text_changed && self.shared.scrolled {
                     self.scrolled_moved_indices.push(AnyBox::TextEdit(i));
-                    result.need_rerender = true;
                 }
             },
             AnyBox::TextBox(i) => {
                 let handle = TextBoxHandle { i: i as u32 };
                 let mut text_box = get_full_text_box_free_function(&mut self.text_boxes, &mut self.shared, &handle);
 
-                let text_result = text_box.handle_event(event, window, &self.input_state);
-                if text_result.text_changed {
-                    self.shared.text_changed = true;
-                    result.need_rerender = true;
-                }
-                if text_result.decorations_changed {
+                text_box.handle_event(event, window, &self.input_state);
+                if self.shared.decorations_changed {
                     self.decorations_changed = true;
-                    result.need_rerender = true;
                 }
-                if !text_result.text_changed && text_result.scrolled {
+                if !self.shared.text_changed && self.shared.scrolled {
                     self.scrolled_moved_indices.push(AnyBox::TextBox(i));
-                    result.need_rerender = true;
                 }
             },
         }
@@ -994,6 +966,23 @@ impl Text {
     /// Returns whether any text was changed in the last frame.
     pub fn get_text_changed(&self) -> bool {
         self.shared.text_changed
+    }
+
+    pub fn decorations_changed(&self) -> bool {
+        self.shared.decorations_changed
+    }
+
+    pub fn scrolled(&self) -> bool {
+        self.shared.scrolled
+    }
+
+    pub fn event_consumed(&self) -> bool {
+        self.shared.event_consumed
+    }
+
+    pub fn need_rerender(&mut self) -> bool {
+        let (_, blink_changed) = self.cursor_blinked_out(true);
+        self.shared.text_changed || self.shared.decorations_changed || self.shared.scrolled || blink_changed
     }
 
     /// Get a mutable reference to a text box wrapped with its style.
@@ -1059,6 +1048,7 @@ impl Text {
     pub(crate) fn add_scroll_animation(&mut self, handle: TextEditHandle, start_offset: f32, target_offset: f32, duration: std::time::Duration, direction: ScrollDirection) {
         // Remove any existing animation for this handle and direction
         self.scroll_animations.retain(|anim| !(anim.handle.i == handle.i && anim.direction == direction));
+        self.shared.scrolled = true;
         
         let animation = ScrollAnimation {
             start_offset,
@@ -1488,28 +1478,6 @@ fn move_quads_for_scroll(text_renderer: &mut TextRenderer, quad_storage: &mut Qu
     // Update stored offset
     quad_storage.last_offset.0 += delta_x_rounded;
     quad_storage.last_offset.1 += delta_y_rounded;
-}
-
-/// Result of handling a window event, providing hints to the user about what actions they should take.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EventResult {
-    /// Whether the event was consumed by a text widget
-    pub consumed: bool,
-    /// Whether the user should rerender the text
-    pub need_rerender: bool,
-    /// Whether the event loop should be set to wake up after a duration. This is set when the cursor should blink.
-    /// 
-    /// Using this value is not recommended: instead, you can set up the winit event loop to wake automatically when needed. See the `smart_event_loop.rs` example for how to do this.
-    pub wake_up_event_loop_in: Option<Duration>,
-}
-impl EventResult {
-    fn nothing() -> EventResult {
-        EventResult {
-            consumed: false,
-            need_rerender: false,
-            wake_up_event_loop_in: None,
-        }
-    }
 }
 
 // todo: get this from system settings.

@@ -45,27 +45,6 @@ impl Default for NewlineMode {
     }
 }
 
-/// Result of handling a window event.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TextEventResult {
-    /// Whether the text content changed
-    pub text_changed: bool,
-    /// Whether visual decorations (selection, cursor position, etc.) changed
-    pub decorations_changed: bool,
-    /// Whether only scrolling occurred (no content changes)
-    pub scrolled: bool,
-}
-
-impl TextEventResult {
-    pub(crate) fn nothing() -> Self {
-        Self {
-            text_changed: false,
-            decorations_changed: false,
-            scrolled: false,
-        }
-    }
-}
-
 /// A string that may be split into two parts (used for IME composition).
 #[derive(Debug, Clone, Copy)]
 pub struct SplitString<'source>(pub(crate) [&'source str; 2]);
@@ -203,15 +182,10 @@ impl ScrollAnimation {
 }
 
 impl<'a> TextEditMut<'a> {
-
-
-    #[must_use]
     // todo remove this function
-    pub(crate) fn handle_event(&mut self, event: &WindowEvent, window: &Window, input_state: &TextInputState) -> TextEventResult {
+    pub(crate) fn handle_event(&mut self, event: &WindowEvent, window: &Window, input_state: &TextInputState) {
         if !self.inner.disabled {
-            self.handle_event_editable(event, window, input_state)
-        } else {
-            return TextEventResult::nothing();
+            self.handle_event_editable(event, window, input_state);
         }
     }
 
@@ -250,30 +224,28 @@ impl<'a> TextEditMut<'a> {
         self.text_box.inner.accesskit_id
     }
 
-    #[must_use]
-    pub(crate) fn handle_event_editable(&mut self, event: &WindowEvent, window: &Window, input_state: &TextInputState) -> TextEventResult {
+    pub(crate) fn handle_event_editable(&mut self, event: &WindowEvent, window: &Window, input_state: &TextInputState) {
         if self.text_box.hidden() {
-            return TextEventResult::nothing();
+            return;
         }
         
         // Capture initial state for comparison
         let initial_selection = self.text_box.selection();
         let initial_show_cursor = self.inner.show_cursor;
         
-        let mut result = TextEventResult::nothing();
         let mut scroll_to_cursor = false;
 
         if ! self.inner.showing_placeholder {
             let did_scroll = self.text_box.handle_event_no_edit(event, input_state, true);
             if did_scroll {
-                result.scrolled = true;
+                self.text_box.shared.scrolled = true;
             }
         }
 
         match event {
             WindowEvent::KeyboardInput { event, .. } if !self.is_composing() => {
                 if !event.state.is_pressed() {
-                    return result;
+                    return;
                 }
                 #[allow(unused)]
                 let mods_state = input_state.modifiers.state();
@@ -294,7 +266,7 @@ impl<'a> TextEditMut<'a> {
                                         if let Some(text) = self.text_box.selected_text() {
                                             cb.set_text(text.to_owned()).ok();
                                             self.delete_selection();
-                                            result.text_changed = true;
+                                            self.text_box.shared.text_changed = true;
                                         }
                                     });
                                 }
@@ -302,16 +274,16 @@ impl<'a> TextEditMut<'a> {
                                     with_clipboard(|cb| {
                                         let text = cb.get_text().unwrap_or_default();
                                         self.insert_or_replace_selection(&text);
-                                        result.text_changed = true;
+                                        self.text_box.shared.text_changed = true;
                                     });
                                 }
                                 "z" => {
                                     if shift {
                                         self.redo();
-                                        result.text_changed = true;
+                                        self.text_box.shared.text_changed = true;
                                     } else {
                                         self.undo();
-                                        result.text_changed = true;
+                                        self.text_box.shared.text_changed = true;
                                     }
                                 }
                                 _ => (),
@@ -390,7 +362,7 @@ impl<'a> TextEditMut<'a> {
                             } else {
                                 self.delete();
                             }
-                            result.text_changed = true;
+                            self.text_box.shared.text_changed = true;
                         }
                     }
                     Key::Named(NamedKey::Backspace) => {
@@ -401,7 +373,7 @@ impl<'a> TextEditMut<'a> {
                             } else {
                                 self.backdelete();
                             }
-                            result.text_changed = true;
+                            self.text_box.shared.text_changed = true;
                         }
                     }
                     Key::Named(NamedKey::Enter) => {
@@ -415,19 +387,19 @@ impl<'a> TextEditMut<'a> {
                         
                         if newline_mode_matches && ! self.inner.single_line {
                             self.insert_or_replace_selection("\n");
-                            result.text_changed = true;
+                            self.text_box.shared.text_changed = true;
                         }
                     }
                     Key::Named(NamedKey::Space) => {
                         if ! action_mod {
                             self.insert_or_replace_selection(" ");
-                            result.text_changed = true;
+                            self.text_box.shared.text_changed = true;
                         }
                     }
                     Key::Character(s) => {
                         if ! action_mod {
                             self.insert_or_replace_selection(&s);
-                            result.text_changed = true;
+                            self.text_box.shared.text_changed = true;
                         }
                     }
                     _ => (),
@@ -462,7 +434,7 @@ impl<'a> TextEditMut<'a> {
             }
             WindowEvent::Ime(Ime::Disabled) => {
                 self.clear_compose();
-                result.text_changed = true;
+                self.text_box.shared.text_changed = true;
             }
             WindowEvent::Ime(Ime::Commit(text)) => {
                 if self.inner.showing_placeholder {
@@ -470,11 +442,11 @@ impl<'a> TextEditMut<'a> {
                 }
                 scroll_to_cursor = true;
                 self.insert_or_replace_selection(&text);
-                result.text_changed = true;
+                self.text_box.shared.text_changed = true;
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor)) => {
                 scroll_to_cursor = true;
-                result.text_changed = true;
+                self.text_box.shared.text_changed = true;
                 if self.inner.showing_placeholder {
                     self.clear_placeholder()
                 }
@@ -491,22 +463,17 @@ impl<'a> TextEditMut<'a> {
         self.restore_placeholder_if_any();
 
         if selection_decorations_changed(initial_selection, self.text_box.selection(), initial_show_cursor, self.inner.show_cursor, !self.inner.disabled) {
-            {
-                let this = &mut result;
-                this.decorations_changed = true;
-            };
+            self.text_box.shared.decorations_changed = true;
         }
 
         self.refresh_layout();
 
-        if scroll_to_cursor || result.text_changed  {
+        if scroll_to_cursor || self.text_box.shared.text_changed  {
             let did_scroll = self.update_scroll_to_cursor();
             if did_scroll {
-                result.scrolled = true;
+                self.text_box.shared.scrolled = true;
             }
         }
-
-        return result;
     }
 
     // #[cfg(feature = "accesskit")]

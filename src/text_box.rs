@@ -384,18 +384,16 @@ impl<'a> TextBoxMut<'a> {
         );
     }
 
-    pub(crate) fn handle_event(&mut self, event: &WindowEvent, _window: &Window, input_state: &TextInputState) -> TextEventResult {
+    pub(crate) fn handle_event(&mut self, event: &WindowEvent, _window: &Window, input_state: &TextInputState) {
         if self.inner.hidden {
-            return TextEventResult::nothing();
+            return;
         }
         
         let initial_selection = self.inner.selection.selection;
         
-        let mut result = TextEventResult::nothing();
-
         let did_scroll = self.handle_event_no_edit(event, input_state, false);
         if did_scroll {
-            result.scrolled = true;
+            self.shared.scrolled = true;
         }
 
         // Handle mouse wheel scrolling for multi-line text boxes with auto_clip
@@ -420,7 +418,7 @@ impl<'a> TextBoxMut<'a> {
                         
                         if (new_scroll - old_scroll).abs() > 0.1 {
                             self.inner.scroll_offset.1 = new_scroll;
-                            result.scrolled = true;
+                            self.shared.scrolled = true;
                         }
                     }
                 }
@@ -428,13 +426,8 @@ impl<'a> TextBoxMut<'a> {
         }
 
         if selection_decorations_changed(initial_selection, self.inner.selection.selection, false, false, false) {
-            {
-                let this = &mut result;
-                this.decorations_changed = true;
-            };
+            self.shared.decorations_changed = true;
         }
-
-        return result;
     }
 
     /// The output bool says if the text box scrolled as a result of a selection drag.
