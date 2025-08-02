@@ -9,7 +9,7 @@
 //
 // See the `event_loop_smart.rs` example to see a more proper implementation of waking.
 //
-// If you're building an application that never pauses its winit event loop. like a game, you can disregard all the wakeup mechanisms entirely. See the `basic.rs` example.
+// If you're building an application that never pauses its winit event loop, like a game, you can disregard all the wakeup mechanisms entirely. See the `basic.rs` example.
 
 
 use textslabs::*;
@@ -113,8 +113,8 @@ impl State {
         self.text.prepare_all(&mut self.text_renderer);
         self.text_renderer.gpu_load(&self.device, &self.queue);
 
-        let output = self.surface.get_current_texture().unwrap();
-        let view = output
+        let surface_texture = self.surface.get_current_texture().unwrap();
+        let view = surface_texture
             .texture
             .create_view(&TextureViewDescriptor::default());
 
@@ -135,16 +135,14 @@ impl State {
                         store: StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
+                ..Default::default()
             });
 
             self.text_renderer.render(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
+        surface_texture.present();
     }
 
     fn resize(&mut self, new_size: LogicalSize<u32>) {
@@ -181,13 +179,13 @@ impl winit::application::ApplicationHandler<()> for Application {
         event: WindowEvent,
     ) {
         let state = self.state.as_mut().unwrap();
+
         state.text.handle_event(&event, &state.window);
 
-        if event == winit::event::WindowEvent::RedrawRequested {
-            _ = state.render();
-        }
-
         match &event {
+            WindowEvent::RedrawRequested => {
+                state.render();
+            }
             WindowEvent::CloseRequested => {
                 event_loop.exit();
                 return;
@@ -202,7 +200,5 @@ impl winit::application::ApplicationHandler<()> for Application {
         if state.text.need_rerender() {
             state.window.request_redraw();
         }
-
     }
-
 }

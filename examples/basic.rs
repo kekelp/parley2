@@ -1,6 +1,6 @@
 use parley::TextStyle;
 use textslabs::*;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use wgpu::*;
 use winit::{
     dpi::LogicalSize,
@@ -130,13 +130,14 @@ impl State {
                 self.window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
-
-                let frame = self.surface.get_current_texture().unwrap();
-                let view = frame.texture.create_view(&TextureViewDescriptor::default());
-
+                // Prepare the cpu-side text data for rendering.
                 self.text.prepare_all(&mut self.text_renderer);
+                // Load the text renderer's data on the gpu.
                 self.text_renderer.gpu_load(&self.device, &self.queue);
 
+                // A bunch of wgpu boilerplate to be able to draw on the screen.
+                let surface_texture = self.surface.get_current_texture().unwrap();
+                let view = surface_texture.texture.create_view(&TextureViewDescriptor::default());
                 let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor { label: None });
                 {
                     let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -151,13 +152,13 @@ impl State {
                         ..Default::default()
                     });
 
+                    // Finally, render the text on the screen.
                     self.text_renderer.render(&mut pass);
                 }
 
+                // More boilerplate.
                 self.queue.submit(Some(encoder.finish()));
-                frame.present();
-
-                std::thread::sleep(Duration::from_millis(1));
+                surface_texture.present();
                 self.window.request_redraw();
             }
             WindowEvent::ModifiersChanged(modifiers) => {

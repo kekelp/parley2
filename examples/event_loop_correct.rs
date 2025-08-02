@@ -2,7 +2,7 @@
 //
 // See `event_loop_easy.rs` for a simpler way to integrate it.
 //
-// If you're building an application that never pauses its winit event loop. like a game, you can disregard all the wakeup mechanisms entirely. See the `basic.rs` example.
+// If you're building an application that never pauses its winit event loop, like a game, you can disregard all the wakeup mechanisms entirely. See the `basic.rs` example.
 
 use textslabs::*;
 use std::sync::Arc;
@@ -105,10 +105,8 @@ impl State {
         self.text.prepare_all(&mut self.text_renderer);
         self.text_renderer.gpu_load(&self.device, &self.queue);
 
-        let output = self.surface.get_current_texture().unwrap();
-        let view = output
-            .texture
-            .create_view(&TextureViewDescriptor::default());
+        let surface_texture = self.surface.get_current_texture().unwrap();
+        let view = surface_texture.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
@@ -127,16 +125,14 @@ impl State {
                         store: StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
+                ..Default::default()
             });
 
             self.text_renderer.render(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
+        surface_texture.present();
     }
 
     fn resize(&mut self, new_size: LogicalSize<u32>) {
@@ -166,6 +162,7 @@ impl winit::application::ApplicationHandler<()> for Application {
         self.state = Some(State::new(window));
     }
 
+    // These two methods integrate the cursor blinking wakeups in the "correct" winit way.
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let state = self.state.as_mut().unwrap();
 
@@ -176,9 +173,8 @@ impl winit::application::ApplicationHandler<()> for Application {
             event_loop.set_control_flow(ControlFlow::Wait);
         }
     }
-
     fn new_events(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, cause: winit::event::StartCause) {
-        let Some(state) = self.state.as_mut() else { return };
+        let state = self.state.as_mut().unwrap();
 
         if let winit::event::StartCause::ResumeTimeReached { .. } = cause {
             state.window.request_redraw();
@@ -194,11 +190,10 @@ impl winit::application::ApplicationHandler<()> for Application {
         let state = self.state.as_mut().unwrap();
         state.text.handle_event(&event, &state.window);
 
-        if event == winit::event::WindowEvent::RedrawRequested {
-            _ = state.render();
-        }
-
         match &event {
+            WindowEvent::RedrawRequested => {
+                state.render();
+            }
             WindowEvent::CloseRequested => {
                 event_loop.exit();
                 return;
