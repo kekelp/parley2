@@ -35,28 +35,3 @@ smallvec = "1.13"
 
 [dev-dependencies]
 pollster = "0.4.0"
-
-[[example]]
-name = "basic"
-path = "examples/basic.rs"
-
-[[example]]
-name = "occlusion"
-path = "examples/occlusion.rs"
-
-[[example]]
-name = "accessibility"
-path = "examples/accessibility.rs"
-
-[[example]]
-name = "accessible_basic"
-path = "examples/accessible_basic.rs"
-
-[[example]]
-name = "simple_accessible"
-path = "examples/simple_accessible.rs"
-
-[[example]]
-name = "full_accessible"
-path = "examples/full_accessible.rs"
-
