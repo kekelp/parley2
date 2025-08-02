@@ -126,7 +126,6 @@ impl State {
                 self.surface_config.width = size.width;
                 self.surface_config.height = size.height;
                 self.surface.configure(&self.device, &self.surface_config);
-                self.text_renderer.update_resolution(size.width as f32, size.height as f32);
                 self.window.request_redraw();
             }
             WindowEvent::RedrawRequested => {

@@ -152,7 +152,6 @@ impl winit::application::ApplicationHandler for Application {
                         window_state.surface_config.width = physical_size.width.max(1);
                         window_state.surface_config.height = physical_size.height.max(1);
                         window_state.surface.configure(&window_state.device, &window_state.surface_config);
-                        window_state.text_renderer.update_resolution(physical_size.width as f32,physical_size.height as f32);
                     }
                 }
                 WindowEvent::RedrawRequested => {

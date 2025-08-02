@@ -78,10 +78,9 @@ struct DeclarativeGrid {
 }
 
 impl DeclarativeGrid {
-    fn new(device: &Device, queue: &Queue, format: TextureFormat, width: f32, height: f32) -> Self {
+    fn new(device: &Device, queue: &Queue, format: TextureFormat) -> Self {
         let mut text = Text::new_without_auto_wakeup();
-        let mut text_renderer = TextRenderer::new(device, queue, format);
-        text_renderer.update_resolution(width, height);
+        let text_renderer = TextRenderer::new(device, queue, format);
         
         // Create styles
         let grid_style = text.add_style(TextStyle {
@@ -228,7 +227,7 @@ impl State {
             .unwrap();
         surface.configure(&device, &surface_config);
         
-        let grid = DeclarativeGrid::new(&device, &queue, surface_config.format, physical_size.width as f32, physical_size.height as f32);
+        let grid = DeclarativeGrid::new(&device, &queue, surface_config.format);
         
         Self {
             device,
@@ -250,7 +249,6 @@ impl State {
                 self.surface_config.width = size.width;
                 self.surface_config.height = size.height;
                 self.surface.configure(&self.device, &self.surface_config);
-                self.grid.text_renderer.update_resolution(size.width as f32, size.height as f32);
                 self.window.request_redraw();
             }
             WindowEvent::RedrawRequested => {

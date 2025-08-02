@@ -47,6 +47,9 @@ pub struct Text {
     pub(crate) cursor_currently_blinked_out: bool,
     
     pub(crate) cursor_blink_timer: Option<CursorBlinkWaker>,
+    
+    pub(crate) screen_width: f32,
+    pub(crate) screen_height: f32,
 
     pub(crate) slot_for_text_box_mut: Option<TextBoxMut<'static>>,
 
@@ -268,6 +271,9 @@ impl Text {
             cursor_blink_start: None,
             cursor_currently_blinked_out: false,
             cursor_blink_timer,
+
+            screen_width: 800.0,
+            screen_height: 600.0,
 
             slot_for_text_box_mut: None,
 
@@ -543,6 +549,8 @@ impl Text {
     }
 
     pub fn prepare_all(&mut self, text_renderer: &mut TextRenderer) {
+        text_renderer.update_resolution(self.screen_width, self.screen_height);
+        
         if ! self.shared.text_changed && self.using_frame_based_visibility {
             // see if any text boxes were just hidden
             for (_i, (_text_edit, text_box)) in self.text_edits.iter_mut() {
@@ -673,7 +681,9 @@ impl Text {
         
         self.input_state.handle_event(event);
 
-        if let WindowEvent::Resized(_) = event {
+        if let WindowEvent::Resized(size) = event {
+            self.screen_width = size.width as f32;
+            self.screen_height = size.height as f32;
             self.shared.text_changed = true;
         }
 

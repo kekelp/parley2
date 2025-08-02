@@ -313,8 +313,7 @@ impl TextRenderer {
         Self::new_with_params(device, queue, format, None, TextRendererParams::default())
     }
 
-    // todo: why not do this in handle_event??? 
-    pub fn update_resolution(&mut self, width: f32, height: f32) {
+    pub(crate) fn update_resolution(&mut self, width: f32, height: f32) {
         self.text_renderer.update_resolution(width, height);
     }
 

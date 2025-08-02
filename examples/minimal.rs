@@ -84,7 +84,6 @@ impl winit::application::ApplicationHandler for Application {
                 state.surface_config.width = size.width;
                 state.surface_config.height = size.height;
                 state.surface.configure(&state.device, &state.surface_config);
-                state.text_renderer.update_resolution(size.width as f32, size.height as f32);
             }
             WindowEvent::RedrawRequested => {
                 state.render();

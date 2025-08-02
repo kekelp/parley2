@@ -150,7 +150,6 @@ impl State {
             self.surface_config.width = new_size.width;
             self.surface_config.height = new_size.height;
             self.surface.configure(&self.device, &self.surface_config);
-            self.text_renderer.update_resolution(new_size.width as f32, new_size.height as f32);
         }
     }
 }
