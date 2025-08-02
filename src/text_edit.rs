@@ -2,11 +2,13 @@ use std::{
     fmt::Display, ops::Range, time::{Duration, Instant}
 };
 
-use accesskit::{Node, NodeId, Rect as AccessRect, Role, TreeUpdate};
 use parley::*;
 use winit::{
     event::{Ime, Touch, WindowEvent}, keyboard::{Key, NamedKey}, platform::modifier_supplement::KeyEventExtModifierSupplement, window::Window
 };
+
+#[cfg(feature = "accessibility")]
+use accesskit::{Node, NodeId, Rect as AccessRect, Role, TreeUpdate};
 
 pub(crate) const CURSOR_WIDTH: f32 = 3.0;
 
@@ -238,10 +240,12 @@ impl<'a> TextEditMut<'a> {
         self.inner.disabled = disabled;
     }
 
+    #[cfg(feature = "accessibility")]
     pub fn set_accesskit_id(&mut self, accesskit_id: NodeId) {
         self.text_box.inner.accesskit_id = Some(accesskit_id);
     }
 
+    #[cfg(feature = "accessibility")]
     pub fn accesskit_id(&self) -> Option<NodeId> {
         self.text_box.inner.accesskit_id
     }
@@ -887,7 +891,7 @@ impl<'a> TextEditMut<'a> {
         self.text_box.set_size(size)
     }
     
-
+    #[cfg(feature = "accessibility")]
     pub fn push_accesskit_update(&mut self, tree_update: &mut TreeUpdate) {
         let accesskit_id = self.text_box.inner.accesskit_id;
         let node = self.accesskit_node();
@@ -904,6 +908,7 @@ impl<'a> TextEditMut<'a> {
         );
     }
 
+    #[cfg(feature = "accessibility")]
     pub(crate) fn push_accesskit_update_to_self(&mut self) {
         let accesskit_id = self.text_box.inner.accesskit_id;
         let node = self.accesskit_node();
@@ -1199,6 +1204,7 @@ macro_rules! impl_for_textedit_and_texteditmut {
 //     };
 // }
 
+#[cfg(feature = "accessibility")]
 impl_for_textedit_and_texteditmut! {
     pub fn accesskit_node(&self) -> Node {
         let mut node = if self.single_line() {
@@ -1236,7 +1242,9 @@ impl_for_textedit_and_texteditmut! {
 
         return node;
     }
-    
+}
+
+impl_for_textedit_and_texteditmut! {
     pub fn is_composing(&self) -> bool {
         self.inner.compose.is_some()
     }
@@ -1569,6 +1577,7 @@ pub(crate) fn should_use_animation(delta: &winit::event::MouseScrollDelta, verti
 }
 
 // Partial borrows moment.
+#[cfg(feature = "accessibility")]
 fn push_accesskit_update_textedit_free_function(
     accesskit_id: Option<accesskit::NodeId>,
     mut node: accesskit::Node,

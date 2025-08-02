@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+
+#[cfg(feature = "accessibility")]
 use accesskit::{Node, NodeId, Rect as AccessRect, Role, TreeUpdate};
 
 use parley::*;
@@ -20,7 +22,9 @@ pub(crate) struct TextBoxInner {
     pub(crate) style_version: u64,
     pub(crate) layout: Layout<ColorBrush>,
 
+    #[cfg(feature = "accessibility")]
     pub(crate) layout_access: LayoutAccessibility,
+    #[cfg(feature = "accessibility")]
     pub(crate) accesskit_id: Option<accesskit::NodeId>,
 
     pub(crate) needs_relayout: bool,
@@ -158,7 +162,9 @@ impl TextBoxInner {
             text: text.into(),
             style_version: 0,
             layout: Layout::new(),
+            #[cfg(feature = "accessibility")]
             layout_access: LayoutAccessibility::default(),
+            #[cfg(feature = "accessibility")]
             accesskit_id: None,
             selectable: true,
             needs_relayout: true,
@@ -212,7 +218,7 @@ macro_rules! impl_for_textbox_and_textboxmut {
     };
 }
 
-
+#[cfg(feature = "accessibility")]
 impl_for_textbox_and_textboxmut! {
     pub fn accesskit_node(&self) -> Node {
         let mut node = Node::new(Role::Label);
@@ -233,7 +239,9 @@ impl_for_textbox_and_textboxmut! {
 
         return node;
     }
+}
 
+impl_for_textbox_and_textboxmut! {
     pub fn style(&'a self) -> &'a TextStyle2 {
         &self.shared.styles[self.inner.style.i as usize].text_style
     }
@@ -342,6 +350,7 @@ impl<'a> TextBox<'a> {
 }
 
 impl<'a> TextBoxMut<'a> {
+    #[cfg(feature = "accessibility")]
     pub fn push_accesskit_update(&mut self, tree_update: &mut TreeUpdate) {
         let accesskit_id = self.inner.accesskit_id;
         let node = self.accesskit_node();
@@ -358,6 +367,7 @@ impl<'a> TextBoxMut<'a> {
         );
     }
 
+    #[cfg(feature = "accessibility")]
     pub(crate) fn push_accesskit_update_to_self(&mut self) {
         let accesskit_id = self.inner.accesskit_id;
         let node = self.accesskit_node();
@@ -625,11 +635,13 @@ impl<'a> TextBoxMut<'a> {
         self.shared.text_changed = true;
         self.inner.text.to_mut()
     }
-
+    
+    #[cfg(feature = "accessibility")]
     pub fn set_accesskit_id(&mut self, accesskit_id: NodeId) {
         self.inner.accesskit_id = Some(accesskit_id);
     }
 
+    #[cfg(feature = "accessibility")]
     pub fn accesskit_id(&self) -> Option<NodeId> {
         self.inner.accesskit_id
     }
@@ -1000,6 +1012,7 @@ impl<'a> TextBoxMut<'a> {
         self.inner.selectable = selectable;
     }
     
+    #[cfg(feature = "accessibility")]
     /// Select inside the editor based on the selection provided by accesskit.
     pub fn select_from_accesskit(&mut self, selection: &accesskit::TextSelection) {
         self.refresh_layout();
@@ -1144,6 +1157,7 @@ impl Ext1 for TextBoxInner {
     }
 }
 
+#[cfg(feature = "accessibility")]
 fn push_accesskit_update_text_box_free_function(
     accesskit_id: Option<accesskit::NodeId>,
     mut node: accesskit::Node,

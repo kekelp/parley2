@@ -1,20 +1,4 @@
-//! Textslabs is an experimental high level text library based on Parley.
-//! 
-//! The goal is to allow any winit/wgpu program to have full-featured text and text editing with minimal integration effort.
-//! 
-//! Most GUI programs or toolkits, games, etc. don't have any advanced requirements for text: they just want basic text boxes that "work the same way as everywhere else" (browsers, native operating system GUIs, etc.).
-//! 
-//! If all that is available is a relatively low level library such as Parley, all these projects will have to do a large amount of repeated work, needlessly raising the barrier of entry to GUI programming.
-//! 
-//! # Limitations
-//! 
-//! This library is not ready for use. It currently does not reach its own goal of "full featured text".
-//! 
-//! - Accessibility is supported in Parley itself but not in Textslabs, because of my personal lack of familiarity with the subject.
-//! 
-//! - Textslabs currently uses the built-in Swash CPU rasterizer and a basic homemade atlas renderer to actually show the text on screen. The performance is acceptable but it is not as good as it could be. This might eventually be fixed by switching to the new "Vello Hybrid" renderer, or by solving the performance problems in Swash. 
-//! 
-//! - Parley itself has some limitations, but they will be probably fixed soon.
+//! `textslabs` is an experimental high level text library, with the goal to allow any winit/wgpu program to have full-featured text and text editing with minimal integration effort.
 //! 
 //! 
 //! # Usage
@@ -106,7 +90,9 @@ pub use text_box::*;
 mod text_edit;
 pub use text_edit::*;
 
+#[cfg(feature = "accessibility")]
 mod accessibility;
+#[cfg(feature = "accessibility")]
 pub use accessibility::*;
 
 pub use parley::TextStyle as ParleyTextStyle;
